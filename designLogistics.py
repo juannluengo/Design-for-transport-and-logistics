@@ -1,50 +1,60 @@
-import pandas as pd # to read csv files 
-import matplotlib.pyplot as plt # for plotting
-from sklearn.cluster import KMeans # for clustering 
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.cluster import KMeans
+import numpy as np  # Import numpy for array manipulations
 
-# Load the Dataset: make sure to change the path to the one in your computer!
+# Load the dataset
 df = pd.read_csv('/Users/juanluengo/Desktop/Estudios/Universidades/4° Carrera/Quartile 4/Design for transport and logistics/Project/instance_set/Set A/A1_1500_1.csv')
 
-print(df.head()) # for taking a look of the first rows of the dataset
+# Function to calculate the Elbow curve data
+def calculate_elbow(data, k_range):
+    inertias = []
+    for k in k_range:
+        kmeans = KMeans(n_clusters=k)
+        kmeans.fit(data)
+        inertias.append(kmeans.inertia_)
+    return inertias
 
-# We start visualizing the dataset
-plt.scatter(df['X'], df['Y'])
-plt.xlabel('X Coordinate')
-plt.ylabel('Y Coordinate')
-plt.title('Pickup and Delivery Locations')
-plt.show()
+# Function to plot the Elbow curve
+def plot_elbow(inertias, k_range):
+    plt.figure(figsize=(8, 4))
+    plt.plot(k_range, inertias, '-o')
+    plt.title('Elbow Method For Optimal k')
+    plt.xlabel('Number of Clusters (k)')
+    plt.ylabel('Sum of Squared Distances')
+    plt.grid(True)
+    plt.show()
 
-# We will use the KMeans algorithm to cluster the locations into X different neighborhoods
-kmeans = KMeans(n_clusters=5) # set the amount of neighborhoods (clusters) to create
-df['Neighborhood'] = kmeans.fit_predict(df[['X', 'Y']]) # add the column 'Neighborhood' to the dataset
+# Function to plot clusters for all locations including the city hub
+def plot_clusters(data, n_clusters):
+    kmeans = KMeans(n_clusters=n_clusters)
+    data['Cluster'] = kmeans.fit_predict(data[['X', 'Y']])
+    centroids = kmeans.cluster_centers_
 
-# Calculate centroids of neighborhoods
-centroids = df.groupby('Neighborhood')[['X', 'Y']].mean() 
+    # Calculate the weighted gravity center of the centroids
+    cluster_sizes = data['Cluster'].value_counts().sort_index().values
+    weighted_centroids = centroids * cluster_sizes[:, np.newaxis] 
+    gravity_center = weighted_centroids.sum(axis=0) / cluster_sizes.sum()
 
-# Determine city hub location
-city_hub_location = centroids.mean()
-print("City Hub Location:")
-print(city_hub_location)
+    plt.figure(figsize=(10, 6))
+    plt.scatter(data['X'], data['Y'], c=data['Cluster'], cmap='viridis', marker='o', label='Locations')
+    plt.scatter(centroids[:, 0], centroids[:, 1], s=100, c='red', label='Satellites', marker='X')
+    plt.scatter(gravity_center[0], gravity_center[1], s=200, c='red', label='City Hub', marker='*')
+    plt.title(f'Unified Pickup and Delivery Locations with {n_clusters} Clusters')
+    plt.xlabel('X Coordinate')
+    plt.ylabel('Y Coordinate')
+    plt.legend()
+    plt.show()
 
+# Calculating the Elbow curve
+k_range = range(1, 21)  # Checking from 1 to 20 clusters
+inertias = calculate_elbow(df[['X', 'Y']], k_range)
 
-# For selecting the satellite locations,
-satellite_locations = df.groupby('Neighborhood').apply(lambda x: x.iloc[x[['X', 'Y']].sub(city_hub_location).pow(2).sum(1).idxmin() if not x.empty else None])[['X', 'Y']]
-print("\nSatellite Locations:")
-print(satellite_locations)
+# Plotting the Elbow curve
+plot_elbow(inertias, k_range)
 
+# Input for the optimal number of clusters based on the Elbow plot
+optimal_k = int(input("Enter the optimal number of clusters based on the elbow plot: "))
 
-# Visualize city hubs and satellites
-plt.scatter(df['X'], df['Y'], label='Pickup/Delivery Locations')
-plt.scatter(city_hub_location['X'], city_hub_location['Y'], color='yellow', label='City Hub', marker='^', s=100)  # Increase marker size for city hub
-plt.scatter(satellite_locations['X'], satellite_locations['Y'], color='red', label='Satellite', marker='s', s=50)  # Increase marker size for satellites
-
-# Set labels and title
-plt.xlabel('X Coordinate')
-plt.ylabel('Y Coordinate')
-plt.title('City Hub, Satellites, and Pickup/Delivery Locations')
-
-# Add legend
-plt.legend()
-
-# Show plot
-plt.show()
+# Plotting clusters using an optimal k based on user input
+plot_clusters(df, n_clusters=optimal_k)
