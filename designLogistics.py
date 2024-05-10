@@ -27,11 +27,8 @@ def plot_elbow(inertias, k_range):
     plt.grid(True)
     plt.show()
 
- # We create a variable to save the city hub location
-city_hub_location = None
-
-# Function to plot clusters for all locations including the city hub
-def plot_clusters(data, n_clusters):
+# Function to plot clusters and adjust city hub location based on inter-city distance
+def plot_clusters(data, n_clusters, distance_km):
     kmeans = KMeans(n_clusters=n_clusters)
     data['Cluster'] = kmeans.fit_predict(data[['X', 'Y']])
     centroids = kmeans.cluster_centers_
@@ -41,20 +38,22 @@ def plot_clusters(data, n_clusters):
     weighted_centroids = centroids * cluster_sizes[:, np.newaxis]
     gravity_center = weighted_centroids.sum(axis=0) / cluster_sizes.sum()
 
-    # Save the city hub location
-    city_hub_location = gravity_center
+    # Adjust city hub location based on inter-city distance
+    max_x = data['X'].max()
+    adjusted_x = min(max_x, gravity_center[0] + distance_km)
+    city_hub_location = np.array([adjusted_x, gravity_center[1]])
 
     plt.figure(figsize=(10, 6))
     plt.scatter(data['X'], data['Y'], c=data['Cluster'], cmap='viridis', marker='o', label='Locations')
     plt.scatter(centroids[:, 0], centroids[:, 1], s=100, c='red', label='Satellites', marker='X')
-    plt.scatter(gravity_center[0], gravity_center[1], s=200, c='red', label='City Hub', marker='*')
+    plt.scatter(city_hub_location[0], city_hub_location[1], s=200, c='red', label='City Hub', marker='*')
     plt.title(f'Unified Pickup and Delivery Locations with {n_clusters} Clusters')
     plt.xlabel('X Coordinate')
     plt.ylabel('Y Coordinate')
     plt.legend()
     plt.show()
 
-    return data, centroids
+    return data, centroids, city_hub_location
 
 # Function to generate random coordinates within each cluster
 def generate_coordinates_per_cluster(data, centroids, n_points_per_cluster=10):
@@ -87,9 +86,10 @@ plot_elbow(inertias, k_range)
 
 # Input for the optimal number of clusters based on the Elbow plot
 optimal_k = int(input("Enter the optimal number of clusters based on the elbow plot: "))
+distance_km = float(input("Enter the distance between cities in km for hub adjustment: "))
 
-# Plotting clusters using an optimal k based on user input
-clustered_data, centroids = plot_clusters(df, n_clusters=optimal_k)
+# Plot clusters using an optimal k and adjust city hub based on input distance
+clustered_data, centroids, city_hub_location = plot_clusters(df, n_clusters=optimal_k, distance_km=distance_km)
 
 # Generate 10 new coordinates per cluster
 generated_coordinates = generate_coordinates_per_cluster(clustered_data, centroids, n_points_per_cluster=10)
@@ -98,15 +98,16 @@ generated_coordinates = generate_coordinates_per_cluster(clustered_data, centroi
 for cluster, coordinates in generated_coordinates.items():
     print(f"Cluster {cluster} generated coordinates:\n", coordinates)
 
+# Function to optimize location using Gurobi
 def optimize_location(df, generated_coordinates, centroids, city_hub_location, f, g):
     # Create a new model
     model = gp.Model()
 
     # Decision variables
     x = {}  # Binary variable indicating whether pickup/delivery location i is assigned to satellite k
-    y = {}  # Binary variable indicating whether satellite k is active (connected to the city hub) and serving pickup/delivery location j
+    y = {}  # Binary variable indicating whether satellite k is active (connected to the city hub)
     z = {}  # Binary variable indicating whether pickup/delivery location j is directly connected to satellite l
-    w = {}  # Binary variable indicating whether satellite l is active and connected to pickup/delivery location k'
+    w = {}  # Binary variable indicating whether satellite l is active and connected to another satellite k'
 
     # Define variables and constraints
     for i in range(len(df)):
@@ -170,5 +171,5 @@ def optimize_location(df, generated_coordinates, centroids, city_hub_location, f
     else:
         print('No solution found')
 
-
+# Run the optimization function
 optimize_location(df, generated_coordinates, centroids, city_hub_location, f=1, g=1)
