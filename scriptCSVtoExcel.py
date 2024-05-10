@@ -1,8 +1,8 @@
 import pandas as pd
 
 # Replace these with your file paths
-csv_file_path = 'your_input_file.csv'
-excel_file_path = 'your_output_file.xlsx'
+csv_file_path = '/Users/juanluengo/Desktop/Estudios/Universidades/4° Carrera/Quartile 4/Design for transport and logistics/Project/instance_set/Set A/A2_1500_1.csv'
+excel_file_path = 'EXCEL_A2_1500_1.xlsx'
 
 # Read the CSV file into a DataFrame
 df = pd.read_csv(csv_file_path)
