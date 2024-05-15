@@ -1,12 +1,35 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
-import numpy as np
 import gurobipy as gp
 from gurobipy import GRB
+import numpy as np
+import random
 
-# Load the dataset
-df = pd.read_csv('/Users/juanluengo/Desktop/Estudios/Universidades/4° Carrera/Quartile 4/Design for transport and logistics/Project/instance_set/Set A/A1_1500_1.csv')
+
+#data visualization
+coordinates_districtA = pd.read_csv("/Users/dailagencarelli/Documents/Design4Transport&Logistic/instance_set/Set A/A1_1500_1.csv")
+pickup_coordsA= coordinates_districtA.iloc[:500]
+delivery_coordsA=coordinates_districtA.iloc[1500:2000]
+plt.figure(figsize=(10,6))
+plt.scatter(pickup_coordsA['X'], pickup_coordsA['Y'], color='blue', label='Pickups')
+plt.scatter(delivery_coordsA['X'], delivery_coordsA['Y'], color='red', label='Deliveries')
+plt.title("Coordinates district A")
+plt.grid(True)
+plt.legend()
+plt.show()
+coordinates_districtB = pd.read_csv("/Users/dailagencarelli/Documents/Design4Transport&Logistic/instance_set/Set B/B1_1500_1.csv")
+pickup_coordsB= coordinates_districtB.iloc[:500]
+delivery_coordsB=coordinates_districtB.iloc[1500:2000]
+plt.figure(figsize=(10,6))
+plt.scatter(pickup_coordsB['X'], pickup_coordsB['Y'], color='blue', label='Pickups')
+plt.scatter(delivery_coordsB['X'], delivery_coordsB['Y'], color='red', label='Deliveries')
+plt.title("Coordinates district B")
+plt.grid(True)
+plt.legend()
+plt.show()
+
+#BUILDING CLUSTERS
 
 # Function to calculate the Elbow curve data
 def calculate_elbow(data, k_range):
@@ -27,149 +50,210 @@ def plot_elbow(inertias, k_range):
     plt.grid(True)
     plt.show()
 
-# Function to plot clusters and adjust city hub location based on inter-city distance
-def plot_clusters(data, n_clusters, distance_km):
-    kmeans = KMeans(n_clusters=n_clusters)
-    data['Cluster'] = kmeans.fit_predict(data[['X', 'Y']])
+def plot_clusters(data, k):
+    kmeans = KMeans(n_clusters=k)
+    kmeans.fit(data)
+    labels = kmeans.labels_
     centroids = kmeans.cluster_centers_
-
-    # Calculate the weighted gravity center of the centroids
-    cluster_sizes = data['Cluster'].value_counts().sort_index().values
-    weighted_centroids = centroids * cluster_sizes[:, np.newaxis]
-    gravity_center = weighted_centroids.sum(axis=0) / cluster_sizes.sum()
-
-    # Adjust city hub location based on inter-city distance
-    max_x = data['X'].max()
-    adjusted_x = min(max_x, gravity_center[0] + distance_km)
-    city_hub_location = np.array([adjusted_x, gravity_center[1]])
-
+    
     plt.figure(figsize=(10, 6))
-    plt.scatter(data['X'], data['Y'], c=data['Cluster'], cmap='viridis', marker='o', label='Locations')
-    plt.scatter(centroids[:, 0], centroids[:, 1], s=100, c='red', label='Satellites', marker='X')
-    plt.scatter(city_hub_location[0], city_hub_location[1], s=200, c='red', label='City Hub', marker='*')
-    plt.title(f'Unified Pickup and Delivery Locations with {n_clusters} Clusters')
-    plt.xlabel('X Coordinate')
-    plt.ylabel('Y Coordinate')
+    plt.scatter(data.iloc[:, 0], data.iloc[:, 1], c=labels, cmap='viridis', alpha=0.5)
+    plt.scatter(centroids[:, 0], centroids[:, 1], marker='*', c='red', s=300)
+    plt.title('Clusters')
+    plt.xlabel('X')
+    plt.ylabel('Y')
+    plt.grid(True)
+    plt.show()
+
+
+def generate_random_satellite_locations(centroids,num_satellites_per_cluster):
+    satellite_locations = []
+    for center in centroids:
+        for _ in range(num_satellites_per_cluster):
+            satellite_x = random.uniform(0, 100)
+            satellite_y = random.uniform(0, 100)
+            satellite_locations.append((satellite_x, satellite_y))
+    return satellite_locations
+
+def plot_clusters_with_satellites(data, centroids, satellite_locations, labels):
+    plt.figure(figsize=(10, 6))
+    plt.scatter(data.iloc[:, 0], data.iloc[:, 1], c=labels, cmap='viridis', alpha=0.5)
+    plt.scatter([loc[0] for loc in satellite_locations], [loc[1] for loc in satellite_locations], c='red', marker='x', s=100, label='Potentail Satellites')
+    #plt.scatter(centroids[:, 0], centroids[:, 1], marker='*', c='blue', s=300, label='Centroids')
+    plt.title('Clusters with Satellites')
+    plt.xlabel('X')
+    plt.ylabel('Y')
+    plt.grid(True)
     plt.legend()
     plt.show()
 
-    return data, centroids, city_hub_location
-
-# Function to generate random coordinates within each cluster
-def generate_coordinates_per_cluster(data, centroids, n_points_per_cluster=10):
-    generated_points = {}
-
-    for cluster_id, centroid in enumerate(centroids):
-        # Extract all data points in the current cluster
-        cluster_data = data[data['Cluster'] == cluster_id]
-        if cluster_data.empty:
-            continue
-
-        # Calculate the bounding box of the cluster
-        min_x, max_x = cluster_data['X'].min(), cluster_data['X'].max()
-        min_y, max_y = cluster_data['Y'].min(), cluster_data['Y'].max()
-
-        # Generate random points within the bounding box
-        generated_points[cluster_id] = np.column_stack([
-            np.random.uniform(min_x, max_x, n_points_per_cluster),
-            np.random.uniform(min_y, max_y, n_points_per_cluster)
-        ])
-
-    return generated_points
-
-# Calculating the Elbow curve
+# Calculating the Elbow curve District A
 k_range = range(1, 21)
-inertias = calculate_elbow(df[['X', 'Y']], k_range)
-
-# Plotting the Elbow curve
+inertias = calculate_elbow(coordinates_districtA[['X', 'Y']], k_range)
 plot_elbow(inertias, k_range)
 
-# Input for the optimal number of clusters based on the Elbow plot
-optimal_k = int(input("Enter the optimal number of clusters based on the elbow plot: "))
-distance_km = float(input("Enter the distance between cities in km for hub adjustment: "))
+# Calculating the Elbow curve District A
+k_range = range(1, 21)
+inertias = calculate_elbow(coordinates_districtB[['X', 'Y']], k_range)
+plot_elbow(inertias, k_range)
 
-# Plot clusters using an optimal k and adjust city hub based on input distance
-clustered_data, centroids, city_hub_location = plot_clusters(df, n_clusters=optimal_k, distance_km=distance_km)
 
-# Generate 10 new coordinates per cluster
-generated_coordinates = generate_coordinates_per_cluster(clustered_data, centroids, n_points_per_cluster=10)
+# Clusters for district A
+k_optimal_districtA = 4 
+plot_clusters(coordinates_districtA[['X', 'Y']], k_optimal_districtA)
 
-# Display generated coordinates
-for cluster, coordinates in generated_coordinates.items():
-    print(f"Cluster {cluster} generated coordinates:\n", coordinates)
+# Clusters for district B
+k_optimal_districtB = 4  
+plot_clusters(coordinates_districtB[['X', 'Y']], k_optimal_districtB)
 
-# Function to optimize location using Gurobi
-def optimize_location(df, generated_coordinates, centroids, city_hub_location, f, g):
-    # Create a new model
-    model = gp.Model()
+# Generazione dei satelliti per il distretto A e B
+num_satellites_per_cluster = 50
 
-    # Decision variables
-    x = {}  # Binary variable indicating whether pickup/delivery location i is assigned to satellite k
-    y = {}  # Binary variable indicating whether satellite k is active (connected to the city hub)
-    z = {}  # Binary variable indicating whether pickup/delivery location j is directly connected to satellite l
-    w = {}  # Binary variable indicating whether satellite l is active and connected to another satellite k'
+# KMeans clustering per trovare i centroidi del distretto A
+kmeans_A = KMeans(n_clusters=k_optimal_districtA)
+kmeans_A.fit(coordinates_districtA[['X', 'Y']])
+centroids_A = kmeans_A.cluster_centers_
+labels_A = kmeans_A.labels_
 
-    # Define variables and constraints
-    for i in range(len(df)):
-        for k in range(len(centroids)):
-            x[i, k] = model.addVar(vtype=GRB.BINARY, name=f'x_{i}_{k}')
+# Generazione delle posizioni dei satelliti per il distretto A
+satellite_locations_A = generate_random_satellite_locations(centroids_A, num_satellites_per_cluster)
 
-    for k in range(len(centroids)):
-        for j in range(len(df)):
-            y[k, j] = model.addVar(vtype=GRB.BINARY, name=f'y_{k}_{j}')
+# KMeans clustering per trovare i centroidi del distretto B
+kmeans_B = KMeans(n_clusters=k_optimal_districtB)
+kmeans_B.fit(coordinates_districtB[['X', 'Y']])
+centroids_B = kmeans_B.cluster_centers_
+labels_B = kmeans_B.labels_
 
-    for j in range(len(df)):
-        for l in range(len(centroids)):
-            z[j, l] = model.addVar(vtype=GRB.BINARY, name=f'z_{j}_{l}')
+# Generazione delle posizioni dei satelliti per il distretto B
+satellite_locations_B = generate_random_satellite_locations(centroids_B, num_satellites_per_cluster)
 
-    for l in range(len(centroids)):
-        for k_prime in range(len(centroids)):
-            w[l, k_prime] = model.addVar(vtype=GRB.BINARY, name=f'w_{l}_{k_prime}')
+# Plot delle posizioni dei satelliti per il distretto A con divisione in cluster
+plot_clusters_with_satellites(coordinates_districtA[['X', 'Y']], centroids_A, satellite_locations_A, labels_A)
 
-    # Capacity constraints
-    for k in range(len(centroids)):
-        model.addConstr(gp.quicksum(x[i, k] * df.iloc[i]['Demand'] for i in range(len(df))) <= 25, f"Satellite_capacity_{k}")
+# Plot delle posizioni dei satelliti per il distretto B con divisione in cluster
+plot_clusters_with_satellites(coordinates_districtB[['X', 'Y']], centroids_B, satellite_locations_B, labels_B)
 
-    model.addConstr(gp.quicksum(y[k, j] * df.iloc[j]['Demand'] for k in range(len(centroids)) for j in range(len(df))) <= 100, "City_hub_capacity")
+from scipy.spatial.distance import cdist
 
-    # Connectivity constraints
-    for i in range(len(df)):
-        model.addConstr(gp.quicksum(x[i, k] for k in range(len(centroids))) == 1, f"Location_assignment_{i}")
+# Calcolo delle distanze tra clienti e satelliti
+dist_pickup_to_satellite_A = cdist(pickup_coordsA[['X', 'Y']], satellite_locations_A)
+dist_pickup_to_satellite_B = cdist(pickup_coordsB[['X', 'Y']], satellite_locations_B)
+dist_delivery_to_satellite_A = cdist(delivery_coordsA[['X', 'Y']], satellite_locations_A)
+dist_delivery_to_satellite_B = cdist(delivery_coordsB[['X', 'Y']], satellite_locations_B)
+# print("dist_pickup_to_satellite_A",dist_pickup_to_satellite_A)
+# print("dist_pickup_to_satellite_B",dist_pickup_to_satellite_B)
+# print("dist_delivery_to_satellite_A",dist_delivery_to_satellite_A)
+# print("dist_delivery_to_satellite_B",dist_delivery_to_satellite_B)
+# Definizione delle variabili Gurobi
+m = gp.Model()
+num_customers_per_district = 500
+capacity_truck = 10
+# Variabili binarie
+x_A = m.addVars(num_customers_per_district, num_satellites_per_cluster * k_optimal_districtA, vtype=GRB.BINARY, name="x_A")
+w_A = m.addVars(num_satellites_per_cluster * k_optimal_districtA, num_customers_per_district, vtype=GRB.BINARY, name="w_A")
 
-    for k in range(len(centroids)):
-        model.addConstr(gp.quicksum(y[k, j] for j in range(len(df))) <= 1, f"Satellite_activation_{k}")
+x_B = m.addVars(num_customers_per_district, num_satellites_per_cluster * k_optimal_districtB, vtype=GRB.BINARY, name="x_B")
+w_B = m.addVars(num_satellites_per_cluster * k_optimal_districtB, num_customers_per_district, vtype=GRB.BINARY, name="w_B")
 
-    for j in range(len(df)):
-        for l in range(len(centroids)):
-            model.addConstr(y[l, j] <= z[j, l], f"Satellite_connection_{j}_{l}")
+# Variabili di attivazione dei satelliti
+zk_A = m.addVars(num_satellites_per_cluster * k_optimal_districtA, vtype=GRB.BINARY, name="zk_A")
+zk_B = m.addVars(num_satellites_per_cluster * k_optimal_districtB, vtype=GRB.BINARY, name="zk_B")
 
-    for l in range(len(centroids)):
-        for k_prime in range(len(centroids)):
-            model.addConstr(w[l, k_prime] <= y[l, :].sum(), f"Satellite_active_connection_{l}_{k_prime}")
+# Parametri di costo e velocità
+gk_A = 5   # Fixed cost to open a satellite in district A
+gk_B = 5   # Fixed cost to open a satellite in district B
+Vt = 50      # Speed of truck
+Vb = 15      # Speed of bicycle
 
-    # Objective function
-    obj = (gp.quicksum(df.iloc[i]['Distance_to_satellite'][k] * x[i, k] * f for i in range(len(df)) for k in range(len(centroids))) +
-           gp.quicksum(df.iloc[j]['Distance_to_city_hub'][l] * y[l, j] * f for l in range(len(centroids)) for j in range(len(df))) +
-           gp.quicksum(df.iloc[j]['Distance_to_city_hub'][l] * z[j, l] * f for l in range(len(centroids)) for j in range(len(df))) +
-           gp.quicksum(df.iloc[k_prime]['Distance_to_city_hub'][l] * w[l, k_prime] * f for l in range(len(centroids)) for k_prime in range(len(centroids))) +
-           gp.quicksum(df.iloc[k_prime]['Distance_to_city_hub'][l] * w[l, k_prime] * g for l in range(len(centroids)) for k_prime in range(len(centroids))) +
-           gp.quicksum(df.iloc[j]['Demand'] * y[l, j] * g for l in range(len(centroids)) for j in range(len(df))) +
-           gp.quicksum(df.iloc[j]['Demand'] * z[j, l] * g for l in range(len(centroids)) for j in range(len(df))))
+# Funzione obiettivo per il distretto A
+obj_A = gp.quicksum(dist_pickup_to_satellite_A[i, j] / Vt * x_A[i, j] for i in range(num_customers_per_district) for j in range(num_satellites_per_cluster * k_optimal_districtA)) + gp.quicksum(gk_A * zk_A[k] for k in range(num_satellites_per_cluster * k_optimal_districtA))
 
-    model.setObjective(obj, GRB.MINIMIZE)
+# Funzione obiettivo per il distretto B
+obj_B = gp.quicksum(dist_delivery_to_satellite_B[i, j] / Vt * x_B[i, j] for i in range(num_customers_per_district) for j in range(num_satellites_per_cluster * k_optimal_districtB)) + gp.quicksum(gk_B * zk_B[k] for k in range(num_satellites_per_cluster * k_optimal_districtB))
 
-    # Optimize model
-    model.optimize()
+# Aggiungiamo la funzione obiettivo al modello
+m.setObjective(obj_A + obj_B, GRB.MINIMIZE)
 
-    # Print optimal solution
-    if model.status == GRB.OPTIMAL:
-        print('\nOptimal solution found:')
-        for v in model.getVars():
-            if v.x > 0:
-                print(f'{v.varName}: {v.x}')
-        print('Objective value:', model.objVal)
-    else:
-        print('No solution found')
+# Vincoli per il distretto A
+for i in range(num_customers_per_district):
+    m.addConstr(gp.quicksum(x_A[i, j] for j in range(num_satellites_per_cluster * k_optimal_districtA)) == 1)
 
-# Run the optimization function
-optimize_location(df, generated_coordinates, centroids, city_hub_location, f=1, g=1)
+for k in range(num_satellites_per_cluster * k_optimal_districtA):
+    m.addConstr(gp.quicksum(w_A[k, h] for h in range(num_customers_per_district)) <= zk_A[k] * capacity_truck)
+
+# Vincoli per il distretto B
+for i in range(num_customers_per_district):
+    m.addConstr(gp.quicksum(x_B[i, j] for j in range(num_satellites_per_cluster * k_optimal_districtB)) == 1)
+
+for k in range(num_satellites_per_cluster * k_optimal_districtB):
+    m.addConstr(gp.quicksum(w_B[k, h] for h in range(num_customers_per_district)) <= zk_B[k] * capacity_truck)
+
+# Vincoli per garantire che ogni cluster sia servito da almeno un satellite
+for cluster in range(k_optimal_districtB):
+    m.addConstr(
+        gp.quicksum(
+            zk_A[cluster * num_satellites_per_cluster + k] for k in range(num_satellites_per_cluster)
+        ) >= 1,
+        f"cluster_{cluster}_A"
+    )
+    m.addConstr(
+        gp.quicksum(
+            zk_B[cluster * num_satellites_per_cluster + k] for k in range(num_satellites_per_cluster)
+        ) >= 1,
+        f"cluster_{cluster}_B"
+    )
+
+
+# Ottimizzazione del modello
+m.optimize()
+
+# Output delle soluzioni
+optimal_satellites_A = []
+optimal_satellites_B = []
+
+for k in range(len(satellite_locations_A)):
+    if zk_A[k].X > 0:  # Se il satellite è attivato
+        optimal_satellites_A.append(satellite_locations_A[k])
+        
+
+for k in range(len(satellite_locations_B)):
+    if zk_B[k].X > 0:  # Se il satellite è attivato
+        optimal_satellites_B.append(satellite_locations_B[k])
+
+# Stampa dei valori delle variabili zk_A e zk_B
+print("Valori delle variabili zk_A:")
+for k in range(num_satellites_per_cluster * k_optimal_districtA):
+    print(f"Satellite {k}: {zk_A[k].X}")
+
+print("Valori delle variabili zk_B:")
+for k in range(num_satellites_per_cluster * k_optimal_districtB):
+    print(f"Satellite {k}: {zk_B[k].X}")
+print("A", optimal_satellites_A)
+print("B", optimal_satellites_B)
+
+# Plot delle posizioni ottimali dei satelliti per il distretto A
+plt.figure(figsize=(10, 6))
+plt.scatter(coordinates_districtA['X'], coordinates_districtA['Y'], c=labels_A, cmap='viridis', alpha=0.5)
+plt.scatter([loc[0] for loc in optimal_satellites_A], [loc[1] for loc in optimal_satellites_A], c='red', marker='x', s=100, label='Optimal Satellites')
+plt.scatter(centroids_A[:, 0], centroids_A[:, 1], marker='*', c='blue', s=300, label='Centroids')
+plt.title('Optimal Satellite Locations in District A')
+plt.xlabel('X')
+plt.ylabel('Y')
+plt.grid(True)
+plt.legend()
+plt.show()
+
+# Plot delle posizioni ottimali dei satelliti per il distretto B
+plt.figure(figsize=(10, 6))
+plt.scatter(coordinates_districtB['X'], coordinates_districtB['Y'], c=labels_B, cmap='viridis', alpha=0.5)
+plt.scatter([loc[0] for loc in optimal_satellites_B], [loc[1] for loc in optimal_satellites_B], c='red', marker='x', s=100, label='Optimal Satellites')
+plt.scatter(centroids_B[:, 0], centroids_B[:, 1], marker='*', c='blue', s=300, label='Centroids')
+plt.title('Optimal Satellite Locations in District B')
+plt.xlabel('X')
+plt.ylabel('Y')
+plt.grid(True)
+plt.legend()
+plt.show()
+
+#/usr/local/bin/python3 /Users/dailagencarelli/Desktop/Design-for-transport-and-logistics/Gurobi.py
+#df = pd.read_csv('/Users/juanluengo/Desktop/Estudios/Universidades/4° Carrera/Quartile 4/Design for transport and logistics/Project/instance_set/Set A/A1_1500_1.csv')
