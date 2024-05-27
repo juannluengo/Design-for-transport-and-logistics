@@ -175,89 +175,70 @@ cost_km_with_bike=1
 
 
 # Funzione obiettivo per il distretto A
-obj_A = gp.quicksum(dist_pickupsA_satellitesA[i, j] * x_A[i, j] for i in range(num_customers_per_district) for j in range(num_satellites_per_cluster * k_optimal_districtA)) 
-obj_A += gp.quicksum(dist_satellitesA_hubA[i, j] * z_A[i, j] for i in range(num_satellites_per_cluster * k_optimal_districtA) for j in range(num_hubs_per_cluster * k_optimal_districtA))
-obj_A += gp.quicksum(dist_hubA_hubB[i, j] * hub_assignment[i, j] for i in range(num_hubs_per_cluster * k_optimal_districtA) for j in range(num_hubs_per_cluster * k_optimal_districtB))
-obj_A += gp.quicksum(dist_satellitesA_deliveriesA[i, j] * w_A[i, j] for i in range(num_satellites_per_cluster * k_optimal_districtA) for j in range(num_customers_per_district))
+obj_A = gp.quicksum(dist_pickupsA_satellitesA[i, j] * x_A[i, j] *cost_km_with_bike for i in range(num_customers_per_district) for j in range(num_satellites_per_cluster * k_optimal_districtA)) 
+obj_A += gp.quicksum(dist_satellitesA_hubA[i, j] * z_A[i, j] *cost_km_with_truck for i in range(num_satellites_per_cluster * k_optimal_districtA) for j in range(num_hubs_per_cluster * k_optimal_districtA))
+obj_A += gp.quicksum(dist_hubA_hubB[i, j] * hub_assignment[i, j]*cost_km_with_truck for i in range(num_hubs_per_cluster * k_optimal_districtA) for j in range(num_hubs_per_cluster * k_optimal_districtB))
+obj_A += gp.quicksum(dist_satellitesA_deliveriesA[i, j] * w_A[i, j]*cost_km_with_bike for i in range(num_satellites_per_cluster * k_optimal_districtA) for j in range(num_customers_per_district))
 obj_A +=gp.quicksum(gk_A * zk_A[k] for k in range(num_satellites_per_cluster * k_optimal_districtA))
 obj_A +=gp.quicksum(gh_A * h_A[k] for k in range(num_hubs_per_cluster * k_optimal_districtA))
 
 
 # Funzione obiettivo per il distretto B con traslazione
-obj_B = gp.quicksum(dist_pickupsB_satellitesB[i, j] * x_B[i, j] for i in range(num_customers_per_district) for j in range(num_satellites_per_cluster * k_optimal_districtB))  
-obj_B += gp.quicksum(dist_satellitesB_hubB[i, j] * z_B[i, j] for i in range(num_satellites_per_cluster * k_optimal_districtB) for j in range(num_hubs_per_cluster * k_optimal_districtB))
-obj_B += gp.quicksum(dist_satellitesB_deliveriesB[j, i] * zk_A[j] for j in range(num_satellites_per_cluster * k_optimal_districtA) for i in range(num_customers_per_district)) 
+obj_B = gp.quicksum(dist_pickupsB_satellitesB[i, j] * x_B[i, j]*cost_km_with_bike for i in range(num_customers_per_district) for j in range(num_satellites_per_cluster * k_optimal_districtB))  
+obj_B += gp.quicksum(dist_satellitesB_hubB[i, j] * z_B[i, j]*cost_km_with_truck for i in range(num_satellites_per_cluster * k_optimal_districtB) for j in range(num_hubs_per_cluster * k_optimal_districtB))
+obj_B += gp.quicksum(dist_hubB_hubA[i, j] * hub_assignment[i, j]*cost_km_with_truck for i in range(num_hubs_per_cluster * k_optimal_districtB) for j in range(num_hubs_per_cluster * k_optimal_districtA))
+obj_B += gp.quicksum(dist_satellitesB_deliveriesB[i, j] * w_A[i, j]*cost_km_with_bike for i in range(num_satellites_per_cluster * k_optimal_districtB) for j in range(num_customers_per_district))
 obj_B += gp.quicksum(gk_B * zk_B[k] for k in range(num_satellites_per_cluster * k_optimal_districtB))
 obj_B +=gp.quicksum(gh_A * h_B[k] for k in range(num_hubs_per_cluster * k_optimal_districtA))
-m.setObjective(obj_B, GRB.MINIMIZE)
 
+m.setObjective(obj_A+obj_B, GRB.MINIMIZE)
 
-# Vincoli di capacità per i satelliti nel distretto A
+for j in range(num_hubs_per_cluster * k_optimal_districtA):
+    m.addConstr(gp.quicksum(x_A[i, j] for i in range(num_customers_per_district)) <= capacity_truck, name=f"truck_capacity_A_{j}")
+for j in range(num_hubs_per_cluster * k_optimal_districtB):
+    m.addConstr(gp.quicksum(x_B[i, j] for i in range(num_customers_per_district)) <= capacity_truck, name=f"truck_capacity_B_{j}")
+
 for j in range(num_satellites_per_cluster * k_optimal_districtA):
-    m.addConstr(gp.quicksum(x_A[i, j] for i in range(num_customers_per_district)) <= capacity_bike)
-
-# Vincoli di capacità per gli hub nel distretto A
-for i in range(num_hubs_per_cluster * k_optimal_districtA):
-    m.addConstr(gp.quicksum(z_A[i, j] for j in range(num_hubs_per_cluster * k_optimal_districtA)) <= capacity_truck)
-
-# Vincoli di assegnazione dei satelliti nel distretto A
-for i in range(num_customers_per_district):
-    m.addConstr(gp.quicksum(x_A[i, j] for j in range(num_satellites_per_cluster * k_optimal_districtA)) == 1)
-
-# Vincoli di assegnazione degli hub nel distretto A
-for i in range(num_hubs_per_cluster * k_optimal_districtA):
-    m.addConstr(gp.quicksum(z_A[i, j] for j in range(num_hubs_per_cluster * k_optimal_districtA)) == 1)
-
-# Vincoli di capacità per i satelliti nel distretto B
+    m.addConstr(gp.quicksum(w_A[j, i] for i in range(num_customers_per_district)) <= capacity_bike, name=f"bike_capacity_A_{j}")
 for j in range(num_satellites_per_cluster * k_optimal_districtB):
-    m.addConstr(gp.quicksum(x_B[i, j] for i in range(num_customers_per_district)) <= capacity_bike)
+    m.addConstr(gp.quicksum(w_B[j, i] for i in range(num_customers_per_district)) <= capacity_bike, name=f"bike_capacity_B_{j}")
 
-# Vincoli di capacità per gli hub nel distretto B
-for i in range(num_hubs_per_cluster * k_optimal_districtB):
-    m.addConstr(gp.quicksum(z_B[i, j] for j in range(num_hubs_per_cluster * k_optimal_districtB)) <= capacity_truck)
-
-# Vincoli di assegnazione dei satelliti nel distretto B
 for i in range(num_customers_per_district):
-    m.addConstr(gp.quicksum(x_B[i, j] for j in range(num_satellites_per_cluster * k_optimal_districtB)) == 1)
+    m.addConstr(gp.quicksum(x_A[i, j] for j in range(num_satellites_per_cluster * k_optimal_districtA)) == 1, name=f"customer_assignment_A_{i}")
+    m.addConstr(gp.quicksum(x_B[i, j] for j in range(num_satellites_per_cluster * k_optimal_districtB)) == 1, name=f"customer_assignment_B_{i}")
 
-# Vincoli di assegnazione degli hub nel distretto B
+for i in range(num_satellites_per_cluster * k_optimal_districtA):
+    m.addConstr(gp.quicksum(z_A[i, j] for j in range(num_hubs_per_cluster * k_optimal_districtA)) == 1, name=f"satellite_hub_link_A_{i}")
+for i in range(num_satellites_per_cluster * k_optimal_districtB):
+    m.addConstr(gp.quicksum(z_B[i, j] for j in range(num_hubs_per_cluster * k_optimal_districtB)) == 1, name=f"satellite_hub_link_B_{i}")
+#satellites can be used only if active:
+for i in range(num_satellites_per_cluster * k_optimal_districtA):
+    for j in range(num_customers_per_district):
+        m.addConstr(x_A[j, i] <= zk_A[i], name=f"open_satellite_A_{i}_{j}")
+for i in range(num_satellites_per_cluster * k_optimal_districtB):
+    for j in range(num_customers_per_district):
+        m.addConstr(x_B[j, i] <= zk_B[i], name=f"open_satellite_B_{i}_{j}")
+#hubs can be used only if active:
+for i in range(num_hubs_per_cluster * k_optimal_districtA):
+    for j in range(num_satellites_per_cluster * k_optimal_districtA):
+        m.addConstr(z_A[j, i] <= h_A[i], name=f"open_hub_A_{i}_{j}")
 for i in range(num_hubs_per_cluster * k_optimal_districtB):
-    m.addConstr(gp.quicksum(z_A[i, j] for j in range(num_hubs_per_cluster * k_optimal_districtA)) == 1)
+    for j in range(num_satellites_per_cluster * k_optimal_districtB):
+        m.addConstr(z_B[j, i] <= h_B[i], name=f"open_hub_B_{i}_{j}")
 
-# Vincoli per garantire che ogni cluster nel distretto A sia servito dal satellite con il costo minimo
+for i in range(num_hubs_per_cluster * k_optimal_districtA):
+    for j in range(num_hubs_per_cluster * k_optimal_districtB):
+        m.addConstr(hub_assignment[i, j] <= h_A[i], name=f"hub_assignment_A_{i}_{j}")
+        m.addConstr(hub_assignment[i, j] <= h_B[j], name=f"hub_assignment_B_{i}_{j}")
+#one hub per district
+m.addConstr(gp.quicksum(h_A[i] for i in range(num_hubs_per_cluster * k_optimal_districtA)) == 1, name="one_hub_A")
+m.addConstr(gp.quicksum(h_B[i] for i in range(num_hubs_per_cluster * k_optimal_districtB)) == 1, name="one_hub_B")
+#one satellite per cluster
 for cluster in range(k_optimal_districtA):
-    m.addConstr(
-        gp.quicksum(
-            zk_A[cluster * num_satellites_per_cluster + k]  # Seleziona il k-esimo satellite all'interno del cluster
-            for k in range(num_satellites_per_cluster)
-        ) >= 1,
-        f"cluster_{cluster}_satellite_A"
-    )
+    m.addConstr(gp.quicksum(zk_A[cluster * num_satellites_per_cluster + i] for i in range(num_satellites_per_cluster)) == 1, name=f"single_satellite_A_cluster_{cluster}")
 
-# Vincoli per garantire che ogni cluster nel distretto B sia servito dal satellite con il costo minimo
 for cluster in range(k_optimal_districtB):
-    m.addConstr(
-        gp.quicksum(
-            zk_B[cluster * num_satellites_per_cluster + k]  # Seleziona il k-esimo satellite all'interno del cluster
-            for k in range(num_satellites_per_cluster)
-        ) >= 1,
-        f"cluster_{cluster}_satellite_B"
-    )
-
-
-
-# Vincolo per garantire che ci sia esattamente un hub attivo nel distretto A
-m.addConstr(
-    gp.quicksum(h_A[k] for k in range(len(hub_locations_A))) == 1,
-    "hub_A"
-)
-
-# Vincolo per garantire che ci sia esattamente un hub attivo nel distretto B
-m.addConstr(
-    gp.quicksum(h_B[k] for k in range(len(hub_locations_B))) == 1,
-    "hub_B"
-)
-
+    m.addConstr(gp.quicksum(zk_B[cluster * num_satellites_per_cluster + i] for i in range(num_satellites_per_cluster)) == 1, name=f"single_satellite_B_cluster_{cluster}")
 
 # Ottimizzazione del modello
 m.optimize()
@@ -289,27 +270,27 @@ for k in range(len(hub_locations_B)):
         optimal_hubs_B.append(hub_locations_B[k])
 
 # Stampa dei valori delle variabili zk_A e zk_B
-print("Valori delle variabili zk_A:")
+print(" zk_A:")
 for k in range(num_satellites_per_cluster * k_optimal_districtA):
     print(f"Satellite {k}: {zk_A[k].X}")
 
-print("Valori delle variabili zk_B:")
+print("zk_B:")
 for k in range(num_satellites_per_cluster * k_optimal_districtB):
     print(f"Satellite {k}: {zk_B[k].X}")
 
 # Stampa dei valori delle variabili h_A e h_B
-print("Valori delle variabili h_A:")
+print("h_A:")
 for k in range(num_hubs_per_cluster * k_optimal_districtA):
     print(f"Hub {k}: {h_A[k].X}")
 
-print("Valori delle variabili h_B:")
+print(" h_B:")
 for k in range(num_hubs_per_cluster * k_optimal_districtB):
     print(f"Hub {k}: {h_B[k].X}")
 
-print("Satelliti attivati per il distretto A:", optimal_satellites_A)
-print("Satelliti attivati per il distretto B:", optimal_satellites_B)
-print("Hub attivati per il distretto A:", optimal_hubs_A)
-print("Hub attivati per il distretto B:", optimal_hubs_B)
+print("Satellites for district A:", optimal_satellites_A)
+print("Satellites for district B:", optimal_satellites_B)
+print("Hub for district A:", optimal_hubs_A)
+print("Hub for district B:", optimal_hubs_B)
 
 import matplotlib.pyplot as plt
 
