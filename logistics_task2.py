@@ -1,12 +1,14 @@
+# coordinates_district = pd.read_csv("/Users/dailagencarelli/Documents/Design4Transport&Logistic/instance_set/Set A/A1_1500_1.csv")
+# coordinates_district = pd.read_csv("/Users/juanluengo/Desktop/Estudios/Universidades/4° Carrera/Quartile 4/Design for transport and logistics/Project/instance_set/Set A/A1_1500_1.csv")
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
-import pyvrp
-
+from scipy.optimize import linprog
 
 # Read data
-coordinates_district = pd.read_csv("/Users/dailagencarelli/Documents/Design4Transport&Logistic/instance_set/Set A/A1_1500_1.csv")
+coordinates_district = pd.read_csv("/Users/juanluengo/Desktop/Estudios/Universidades/4° Carrera/Quartile 4/Design for transport and logistics/Project/instance_set/Set A/A1_1500_1.csv")
 pickup_coords = coordinates_district.iloc[:1500].copy()  
 delivery_coords = coordinates_district.iloc[1500:].copy()  
 
@@ -63,10 +65,10 @@ def plot_clustered_coordinates_with_hub_and_satellites(coords, hub, satellites, 
 plot_clustered_coordinates_with_hub_and_satellites(coords_A, hub_A, satellites_A, 'A')
 plot_clustered_coordinates_with_hub_and_satellites(coords_B, hub_B, satellites_B, 'B')
 
-Pickups_to_satellites=[]
+# Pickups to satellites assignment
+Pickups_to_satellites = []
 for cluster_id, satellite_coords in satellites_A.iterrows():
-    cluster_pickups= coords_A[coords_A['Cluster'] == cluster_id][['X', 'Y']] # Filter pickup coordinates for the current cluster
-     # Assign each pickup in the cluster to the corresponding satellite
+    cluster_pickups = coords_A[coords_A['Cluster'] == cluster_id][['X', 'Y']] # Filter pickup coordinates for the current cluster
     for pickup_id in cluster_pickups.index:
         Pickups_to_satellites.append([pickup_id, satellite_coords.name])
 
@@ -75,20 +77,61 @@ print(Pickups_to_satellites)
 
 # Time window
 pickup_coords_A = pickup_coords_A.dropna(subset=['Early', 'Latest']).copy()
-# Definizione dei vincoli di tempo (time windows) per i pickup
-pickup_time_windows_A = []
-for _, pickup in pickup_coords_A.iterrows():
-    pickup_time_windows_A.append((pickup['Early'], pickup['Latest']))
+pickup_time_windows_A = [(row['Early'], row['Latest']) for _, row in pickup_coords_A.iterrows()]
 print("These are the pickup time windows", pickup_time_windows_A)
 pickup_demands_A = pickup_coords_A['Demand'].values
-print("This is the demand per pickup point",pickup_demands_A)
+print("This is the demand per pickup point", pickup_demands_A)
 pickup_demands_A_sum = np.sum(pickup_demands_A)
 print("Total demand for district A:", pickup_demands_A_sum)
 
+# Truck capacities and demands
+truck_capacity = 100
+num_trucks = 10000  # Significantly increase the number of trucks
+fixed_cost_per_km = 1
+fixed_cost_per_truck = 5
 
-# Vehicle capacities
-vehicle_capacity = 20
-num_vehicles = 100
-fixed_cost_per_km=1
-fixed_cost_to_open=15
-fixed_cost_per_vehicle=5
+hub_A_demand = pickup_demands_A_sum
+hub_B_demand = np.sum(delivery_coords_B['Demand'].values)
+
+# Linear programming setup
+c = []  # Costs array
+A_eq = []  # Equality constraints matrix
+b_eq = []  # Equality constraints vector
+
+# Decision variables (binary)
+x = []
+
+# Cost setup
+for t in range(num_trucks):
+    c.append(fixed_cost_per_truck)
+
+# Capacity and utilization constraints
+for t in range(num_trucks):
+    row = [0] * num_trucks
+    row[t] = truck_capacity
+    A_eq.append(row)
+    b_eq.append(0)  # Initially set to 0, will be adjusted later
+
+# Demand satisfaction constraint
+demand_constraint = [1] * num_trucks
+A_eq.append(demand_constraint)
+b_eq.append(max(hub_A_demand, hub_B_demand))
+
+# Constraint to limit the number of trucks used
+truck_usage_constraint = [1] * num_trucks
+A_eq.append(truck_usage_constraint)
+b_eq.append((hub_A_demand + hub_B_demand) // truck_capacity)
+
+# Bounds for decision variables (0 or 1)
+bounds = [(0, 1) for _ in range(num_trucks)]
+
+# Linear programming problem solving
+result = linprog(c, A_eq=A_eq, b_eq=b_eq, bounds=bounds, method='highs')
+
+# Results
+if result.success:
+    print("Optimal truck assignments:", result.x)
+else:
+    print("No optimal solution found.")
+
+print("Minimized cost:", result.fun)
