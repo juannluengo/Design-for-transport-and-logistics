@@ -7,6 +7,7 @@ from gurobipy import Model, GRB, quicksum
 
 # Read Excel file into DataFrame
 df = pd.read_excel('/Users/fernandomarti/Desktop/1CM130 Design for transport and logistics/TASK 1/Code/A1_1500_1.xlsx')
+# df = pd.read_csv('/Users/fernandomarti/Desktop/fewData.csv')
 
 # Elbow Method
 coordinates = df[['X', 'Y']]
@@ -32,16 +33,22 @@ df['Cluster'] = kmeans.fit_predict(coordinates)
 df['Cluster_Center_X'] = df['Cluster'].apply(lambda x: kmeans.cluster_centers_[x][0])
 df['Cluster_Center_Y'] = df['Cluster'].apply(lambda x: kmeans.cluster_centers_[x][1])
 
-# Plot orders and clusters
+# Calculate the city hub location as the centroid of satellite locations
+city_hub_x = kmeans.cluster_centers_[:, 0].mean()
+city_hub_y = kmeans.cluster_centers_[:, 1].mean()
+
+# Plot orders, clusters, and the city hub
 plt.figure(figsize=(10, 6))
 plt.scatter(df['X'], df['Y'], c=df['Cluster'], cmap='viridis', label='Orders')
 plt.scatter(kmeans.cluster_centers_[:, 0], kmeans.cluster_centers_[:, 1], c='red', marker='*', s=100, label='Satellites')
+plt.scatter(city_hub_x, city_hub_y, c='blue', marker='o', s=200, label='City Hub')
 plt.xlabel('X Coordinate')
 plt.ylabel('Y Coordinate')
-plt.title('Orders and Satellites')
+plt.title('Orders, Satellites, and City Hub')
 plt.legend()
 plt.grid(True)
 plt.show()
+
 
 # Check cluster sizes and reassign if necessary
 cluster_counts = Counter(df['Cluster'])
@@ -66,8 +73,15 @@ num_satellites = df['Cluster'].nunique()
 fixed_cost = num_satellites * 5000  # 5000€ per satellite
 total_cost = total_transport_cost + fixed_cost
 
+# Calculate the distance from the city hub to each satellite
+city_hub_distances = np.sqrt((kmeans.cluster_centers_[:, 0] - city_hub_x)**2 + (kmeans.cluster_centers_[:, 1] - city_hub_y)**2)
+total_city_hub_distance = city_hub_distances.sum()
+
 print(f"Number of satellites: {num_satellites}")
 print(f"Total transport cost: {total_transport_cost:.2f}€")
 print(f"Fixed cost: {fixed_cost:.2f}€")
 print(f"Total cost: {total_cost:.2f}€")
+print(f"City hub location: ({city_hub_x:.2f}, {city_hub_y:.2f})")
+print(f"Total distance from city hub to satellites: {total_city_hub_distance:.2f} distance units")
+
 
