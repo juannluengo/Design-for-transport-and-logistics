@@ -85,3 +85,5 @@ print(f"City hub location: ({city_hub_x:.2f}, {city_hub_y:.2f})")
 print(f"Total distance from city hub to satellites: {total_city_hub_distance:.2f} distance units")
 
 
+
+
