@@ -5,7 +5,7 @@ from scipy.spatial.distance import cdist
 import gurobipy as gp
 from gurobipy import GRB
 
-# Funzione per calcolare l'Elbow curve
+# Function for calculating the Elbow curve
 def calculate_elbow(data, k_range,random_state=42):
     inertias = []
     for k in k_range:
@@ -14,7 +14,7 @@ def calculate_elbow(data, k_range,random_state=42):
         inertias.append(kmeans.inertia_)
     return inertias
 
-# Funzione per visualizzare l'Elbow curve
+# Function for plotting the Elbow curve
 def plot_elbow(inertias, k_range,title):
     plt.figure(figsize=(8, 4))
     plt.plot(k_range, inertias, '-o')
@@ -99,7 +99,6 @@ def generate_initial_solution(points, num_satellites_per_cluster=50, num_hubs_pe
         satellites.append(satellite_locations)
         plot_clusters_with_hubs_satellites(points_district, centroids, satellite_locations, hub_locations, labels, title='Clusters with Satellites and Hubs')
 
-        #plot_clusters_with_hubs_satellites(points_district[['X', 'Y']], centroids, satellite_locations, hub_locations, labels, title='Clusters with Satellites and Hubs for District A')
     return hubs, satellites, clusters
 
 
@@ -114,22 +113,22 @@ def optimize_hubs_satellites(points, fixed_cost_hub=5000, fixed_cost_satellite=5
     hubs, satellites, clusters = generate_initial_solution(points, num_satellites_per_cluster=50, num_hubs_per_cluster=100)
 
     for points_district, hubs_district, satellites_district in zip(points, hubs, satellites):
-        # Numero di punti
+        # Number of points
         n_points = points_district.shape[0]
         
-        # Matrici di distanza
+        # Distance matrices
         dist_points_to_satellites = cdist(points_district, satellites_district)
         dist_satellites_to_hubs = cdist(satellites_district, hubs_district)
         bike_cost=1
         truck_cost=2
 
-        # Variabili di decisione
+        # Decision variables
         x = model.addVars(n_points, len(satellites_district), vtype=GRB.BINARY, name="assign_points_to_satellites")
         y = model.addVars(len(satellites_district), len(hubs_district), vtype=GRB.BINARY, name="assign_satellites_to_hubs")
         z = model.addVars(len(hubs_district), vtype=GRB.BINARY, name="open_hubs")
         w = model.addVars(len(satellites_district), vtype=GRB.BINARY, name="open_satellites")
 
-        # Funzione obiettivo: Minimizzare il costo totale
+        # Objective function: minimize total cost
         model.setObjective(
             gp.quicksum(dist_points_to_satellites[i, j] * x[i, j]*bike_cost for i in range(n_points) for j in range(len(satellites_district)))
             + gp.quicksum(dist_satellites_to_hubs[j, k] * y[j, k]*truck_cost for j in range(len(satellites_district)) for k in range(len(hubs_district)))
@@ -138,23 +137,23 @@ def optimize_hubs_satellites(points, fixed_cost_hub=5000, fixed_cost_satellite=5
             GRB.MINIMIZE
         )
 
-        # Vincoli
-        # Ogni punto deve essere assegnato a esattamente un satellite
+        # Constraints
+        # Each point must be assigned to exactly one satellite
         model.addConstrs((gp.quicksum(x[i, j] for j in range(len(satellites_district))) == 1 for i in range(n_points)), name="assign_points")
 
-        # Ogni satellite deve essere assegnato a esattamente un hub
+        # Each satellite must be assigned to exactly one hub
         model.addConstrs((gp.quicksum(y[j, k] for k in range(len(hubs_district))) == 1 for j in range(len(satellites_district))), name="assign_satellites")
 
-        # Aprire un satellite se qualsiasi punto è assegnato ad esso
+        # Open a satellite if any point is assigned to it
         model.addConstrs((x[i, j] <= w[j] for i in range(n_points) for j in range(len(satellites_district))), name="open_satellite_if_assigned")
 
-        # Aprire un hub se qualsiasi satellite è assegnato ad esso
+        # Open a hub if any satellite is assigned to it
         model.addConstrs((y[j, k] <= z[k] for j in range(len(satellites_district)) for k in range(len(hubs_district))), name="open_hub_if_assigned")
 
-        # Risolvi il modello
+        # Solve the optimization problem
         model.optimize()
 
-        # Estrazione dei risultati
+        # Extraction of results
         hubs_district = np.array([hubs_district[k] for k in range(len(hubs_district)) if z[k].X > 0.5])
         satellites_district = np.array([satellites_district[j] for j in range(len(satellites_district)) if w[j].X > 0.5])
 
@@ -165,7 +164,7 @@ def optimize_hubs_satellites(points, fixed_cost_hub=5000, fixed_cost_satellite=5
 
     return hubs_final, satellites_final, clusters
 
-# Funzione di visualizzazione
+# Plot the optimized solution
 def plot_optimized_solution(points, hubs, satellites, clusters):
     for points_district, hubs_district, satellites_district, labels in zip(points, hubs, satellites, clusters):
         plt.figure(figsize=(10, 6))
