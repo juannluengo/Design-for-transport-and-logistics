@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 
 
-#from hubs_satellites import optimize_hubs_satellites
+# From hubs_satellites import optimize_hubs_satellites
 import pandas as pd
 import numpy as np
 delivery, pickup = get_map()

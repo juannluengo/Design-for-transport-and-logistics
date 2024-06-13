@@ -2,9 +2,14 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
+file_path_juan = "/Users/juanluengo/Desktop/Estudios/Universidades/4° Carrera/Quartile 4/Design for transport and logistics/Project/instance_set/Set A/A1_1500_1.csv"
+file_path_daila = "/Users/dailagencarelli/Documents/Design4Transport&Logistic/instance_set/Set A/A1_1500_1.csv"
+file_path_small = "/Users/juanluengo/Desktop/Estudios/Universidades/4° Carrera/Quartile 4/Design for transport and logistics/Project/instance_set/Set A/fewData.csv"
+
+coordinates_district = pd.read_csv(file_path_small)
+
 def get_map():
     # Read data
-    coordinates_district = pd.read_csv("/Users/dailagencarelli/Desktop/Design-for-transport-and-logistics/A1_1500_1.csv")
     coordinates_district.fillna(0,inplace=True)
     print(coordinates_district)
     pickup_coords = coordinates_district.iloc[:1500].copy()  

@@ -7,9 +7,8 @@ import gurobipy as gp
 from gurobipy import GRB
 random.seed(42)
 np.random.seed(42)
-# Caricamento dei dati e visualizzazione dei punti di ritiro e consegna per il distretto A
 
-# Funzione per calcolare l'Elbow curve
+# Function to load the data
 def calculate_elbow(data, k_range):
     inertias = []
     for k in k_range:
@@ -18,7 +17,7 @@ def calculate_elbow(data, k_range):
         inertias.append(kmeans.inertia_)
     return inertias
 
-# Funzione per visualizzare l'Elbow curve
+# Function to plot the elbow curve
 def plot_elbow(inertias, k_range,title):
     plt.figure(figsize=(8, 4))
     plt.plot(k_range, inertias, '-o')
@@ -28,7 +27,7 @@ def plot_elbow(inertias, k_range,title):
     plt.grid(True)
     plt.show()
 
-# Funzione per visualizzare i cluster con satelliti e hub
+# Function to plot the clusters with hubs and satellites
 def plot_clusters_with_hubs_satellites(data, centroids, satellite_locations, hub_locations, labels, title):
     plt.figure(figsize=(10, 6))
     plt.scatter(data.iloc[:, 0], data.iloc[:, 1], c=labels, cmap='viridis', alpha=0.5)
@@ -41,7 +40,7 @@ def plot_clusters_with_hubs_satellites(data, centroids, satellite_locations, hub
     plt.legend()
     plt.show()
 
-# Generazione dei potenziali hub per il distretto A e B
+# Generation of potential hubs for district A and B
 num_hubs_per_cluster = 50
 def generate_random_hub_locations(centroids, num_hubs_per_cluster):
     hub_locations = []
@@ -53,7 +52,7 @@ def generate_random_hub_locations(centroids, num_hubs_per_cluster):
             hub_locations.append((hub_x, hub_y))
     return hub_locations
 
-# Generazione dei potenziali satelliti per il distretto A e B
+# Generate random satellite locations for district A and B
 num_satellites_per_cluster = 100
 def generate_random_satellite_locations(centroids, num_hubs_per_cluster):
     satellite_locations = []
@@ -64,18 +63,19 @@ def generate_random_satellite_locations(centroids, num_hubs_per_cluster):
             hub_y = random.uniform(center[1] - 25, center[1] + 25)  
             satellite_locations.append((hub_x, hub_y))
     return satellite_locations
-# Calcolo dell'Elbow curve per il distretto A
+
+# Calculation of the Elbow curve for district A
 k_range_A = range(1, 21)
 inertias_A = calculate_elbow(coordinates_districtA[['X', 'Y']], k_range_A)
 plot_elbow(inertias_A, k_range_A, title='Elbow Method for optimal clusters in District A')
 
-# Calcolo dell'Elbow curve per il distretto B
+# Calculation of the Elbow curve for district B
 k_range_B = range(1, 21)
 inertias_B = calculate_elbow(coordinates_districtB[['X', 'Y']], k_range_B)
 plot_elbow(inertias_B, k_range_B, title='Elbow Method for optimal cluster in District B')
 
 
-# Clustering per il distretto A
+# Clustering for district A
 k_optimal_districtA = 4
 kmeans_A = KMeans(n_clusters=k_optimal_districtA)
 kmeans_A.fit(coordinates_districtA[['X', 'Y']])
@@ -85,7 +85,7 @@ satellite_locations_A = generate_random_satellite_locations(centroids_A, num_sat
 hub_locations_A = generate_random_hub_locations(centroids_A, num_hubs_per_cluster)
 plot_clusters_with_hubs_satellites(coordinates_districtA[['X', 'Y']], centroids_A, satellite_locations_A, hub_locations_A, labels_A,title='Clusters with Satellites and Hubs for District A')
 
-# Clustering per il distretto B
+# Clustering for district B
 k_optimal_districtB = 4
 kmeans_B = KMeans(n_clusters=k_optimal_districtB)
 kmeans_B.fit(coordinates_districtB[['X', 'Y']])
@@ -118,27 +118,28 @@ num_customers_per_district = 500
 capacity_truck = 100
 capacity_bike = 10
 
-# Variabili binarie per nodi, hub e satelliti per il distretto A
+# Binary variables for nodes, hubs, and satellites for district A
 x_A = m.addVars(num_customers_per_district, num_satellites_per_cluster * k_optimal_districtA, vtype=GRB.BINARY, name="x_A")
 w_A = m.addVars(num_satellites_per_cluster * k_optimal_districtA, num_customers_per_district, vtype=GRB.BINARY, name="w_A")
 z_A = m.addVars(num_satellites_per_cluster * k_optimal_districtA, num_hubs_per_cluster * k_optimal_districtA, vtype=GRB.BINARY, name="z_A")
 
-# Variabili binarie per nodi, hub e satelliti per il distretto B
+# Binary variables for nodes, hubs, and satellites for district B
 x_B = m.addVars(num_customers_per_district, num_satellites_per_cluster * k_optimal_districtB, vtype=GRB.BINARY, name="x_B")
 w_B = m.addVars(num_satellites_per_cluster * k_optimal_districtB, num_customers_per_district, vtype=GRB.BINARY, name="w_B")
 z_B = m.addVars(num_satellites_per_cluster * k_optimal_districtB, num_hubs_per_cluster * k_optimal_districtB, vtype=GRB.BINARY, name="z_B")
 
-# Variabili di attivazione dei satelliti
+# Satellite activation variables
 zk_A = m.addVars(num_satellites_per_cluster * k_optimal_districtA, vtype=GRB.BINARY, name="zk_A")
 zk_B = m.addVars(num_satellites_per_cluster * k_optimal_districtB, vtype=GRB.BINARY, name="zk_B")
-# Variabili di attivazione degli hubs
+
+# Hub activation variables
 h_A = m.addVars(num_hubs_per_cluster * k_optimal_districtA, vtype=GRB.BINARY, name="h_A")
 h_B = m.addVars(num_hubs_per_cluster * k_optimal_districtB, vtype=GRB.BINARY, name="h_B")
 
 
 hub_assignment = m.addVars(num_hubs_per_cluster * k_optimal_districtA, num_hubs_per_cluster * k_optimal_districtB, vtype=GRB.BINARY, name="hub_assignment")
 
-# Parametri di costo e velocità
+# Parameters for the model
 gk_A = 5   # Fixed cost to open a satellite in district A
 gk_B = 5   # Fixed cost to open a satellite in district B
 gh_A = 30   # Fixed cost to open a hub in district A
@@ -149,7 +150,7 @@ cost_km_with_truck=10
 cost_km_with_bike=1
 
 
-# Funzione obiettivo per il distretto A
+# Objetive function for district A with translation
 obj_A = gp.quicksum(dist_pickupsA_satellitesA[i, j] * x_A[i, j] *cost_km_with_bike for i in range(num_customers_per_district) for j in range(num_satellites_per_cluster * k_optimal_districtA)) 
 obj_A += gp.quicksum(dist_satellitesA_hubA[i, j] * z_A[i, j] *cost_km_with_truck for i in range(num_satellites_per_cluster * k_optimal_districtA) for j in range(num_hubs_per_cluster * k_optimal_districtA))
 obj_A += gp.quicksum(dist_hubA_hubB[i, j] * hub_assignment[i, j]*cost_km_with_truck for i in range(num_hubs_per_cluster * k_optimal_districtA) for j in range(num_hubs_per_cluster * k_optimal_districtB))
@@ -158,7 +159,7 @@ obj_A +=gp.quicksum(gk_A * zk_A[k] for k in range(num_satellites_per_cluster * k
 obj_A +=gp.quicksum(gh_A * h_A[k] for k in range(num_hubs_per_cluster * k_optimal_districtA))
 
 
-# Funzione obiettivo per il distretto B con traslazione
+# Objective function for district B with translation
 obj_B = gp.quicksum(dist_pickupsB_satellitesB[i, j] * x_B[i, j]*cost_km_with_bike for i in range(num_customers_per_district) for j in range(num_satellites_per_cluster * k_optimal_districtB))  
 obj_B += gp.quicksum(dist_satellitesB_hubB[i, j] * z_B[i, j]*cost_km_with_truck for i in range(num_satellites_per_cluster * k_optimal_districtB) for j in range(num_hubs_per_cluster * k_optimal_districtB))
 obj_B += gp.quicksum(dist_hubB_hubA[i, j] * hub_assignment[i, j]*cost_km_with_truck for i in range(num_hubs_per_cluster * k_optimal_districtB) for j in range(num_hubs_per_cluster * k_optimal_districtA))
@@ -215,36 +216,36 @@ for cluster in range(k_optimal_districtA):
 for cluster in range(k_optimal_districtB):
     m.addConstr(gp.quicksum(zk_B[cluster * num_satellites_per_cluster + i] for i in range(num_satellites_per_cluster)) == 1, name=f"single_satellite_B_cluster_{cluster}")
 
-# Ottimizzazione del modello
+# Optimization of the model
 m.optimize()
 
-# Output delle soluzioni
+# Output of the optimal solution
 optimal_satellites_A = []
 optimal_satellites_B = []
 optimal_hubs_A = []
 optimal_hubs_B = []
 
-# Satellite attivati per il distretto A
+# Satellites activated for district A
 for k in range(len(satellite_locations_A)):
     if zk_A[k].X > 0.5:  
         optimal_satellites_A.append(satellite_locations_A[k])
 
-# Satellite attivati per il distretto B
+# Satellites activated for district B
 for k in range(len(satellite_locations_B)):
     if zk_B[k].X > 0.5:  
         optimal_satellites_B.append(satellite_locations_B[k])
 
-# Hub attivati per il distretto A
+# Hubs activated for district A
 for k in range(len(hub_locations_A)):
     if h_A[k].X > 0.5:  
         optimal_hubs_A.append(hub_locations_A[k])
 
-# Hub attivati per il distretto B
+# Hubs activated for district B
 for k in range(len(hub_locations_B)):
     if h_B[k].X > 0.5:  
         optimal_hubs_B.append(hub_locations_B[k])
 
-# Stampa dei valori delle variabili zk_A e zk_B
+# Printing the values ​​of the zk_A and zk_B variables
 print(" zk_A:")
 for k in range(num_satellites_per_cluster * k_optimal_districtA):
     print(f"Satellite {k}: {zk_A[k].X}")
@@ -253,7 +254,7 @@ print("zk_B:")
 for k in range(num_satellites_per_cluster * k_optimal_districtB):
     print(f"Satellite {k}: {zk_B[k].X}")
 
-# Stampa dei valori delle variabili h_A e h_B
+# Printing the values ​​of the h_A and h_B variables
 print("h_A:")
 for k in range(num_hubs_per_cluster * k_optimal_districtA):
     print(f"Hub {k}: {h_A[k].X}")
@@ -282,12 +283,9 @@ def plot_final_map(coordinates, centroids, satellite_locations, hub_locations, l
     plt.legend()
     plt.show()
 
-# Plot della mappa finale per il distretto A
+# Plotting the final map for district A
 plot_final_map(coordinates_districtA[['X', 'Y']], centroids_A, optimal_satellites_A, optimal_hubs_A, labels_A)
 
-# Plot della mappa finale per il distretto B
+# Plotting the final map for district B
 plot_final_map(coordinates_districtB[['X', 'Y']], centroids_B, optimal_satellites_B, optimal_hubs_B, labels_B)
 
-
-
-#/usr/local/bin/python3 /Users/dailagencarelli/Desktop/Design-for-transport-and-logistics/hubs+satellites.py
