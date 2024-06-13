@@ -202,3 +202,35 @@ def plot_scenario_results(results_df):
 
 plot_scenario_results(results_df)
 print(results_df)
+
+# Extract the "Day-Ops" column
+day_ops = coordinates_district['Day-Ops']
+
+# Initialize an array to count the number of packages per day
+day_counts = np.zeros(10)  # Assuming 10 days
+
+# Go through the "Day-Ops" column and update the array
+for day in day_ops:
+    if not np.isnan(day) and 1 <= day <= 10:
+        day_counts[int(day)-1] += 1
+
+# Calculate the proportion of packages per day
+day_proportions = day_counts / day_counts.sum()
+
+# Distribute the trucks proportionally
+trucks_per_day = np.round(day_proportions * 38)
+
+# Adjust the distribution to make sure the total number of trucks is equal to 38
+while trucks_per_day.sum() > 38:
+    max_index = np.argmax(trucks_per_day)
+    trucks_per_day[max_index] -= 1
+
+while trucks_per_day.sum() < 38:
+    min_index = np.argmin(trucks_per_day)
+    trucks_per_day[min_index] += 1
+
+print("The trucks needed for each day are:")
+
+# Print the results in the desired format
+for i, trucks in enumerate(trucks_per_day, start=1):
+    print(f'Day {i}: {trucks}')
