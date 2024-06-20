@@ -129,6 +129,12 @@ def nearest_neighbor_vrp(start_point, delivery_points, pickup_points, vehicle_ca
                 current_points[vehicle] = nearest_point
                 current_capacities[vehicle] += nearest_point[2]
                 unvisited.remove(nearest_index)
+
+                if nearest_point in pickup_points:
+                    print(f"Vehicle {vehicle+1}: Picking up package at {nearest_point}")
+                elif nearest_point in delivery_points:
+                    print(f"Vehicle {vehicle+1}: Delivering package at {nearest_point}")
+
             else:
                 # Return to the satellite if no valid points left to visit
                 total_distances[vehicle] += np.linalg.norm(np.array(current_points[vehicle][:2]) - np.array(start_point[:2]))
@@ -146,7 +152,18 @@ def nearest_neighbor_vrp(start_point, delivery_points, pickup_points, vehicle_ca
 
 # Converti i dati in un formato utilizzabile per VRP
 def convert_to_vrp_format(coords):
-    return [(row['X'], row['Y'], 1) for index, row in coords.iterrows()]
+    formatted_coords = []
+    
+    for index, row in coords.iterrows():
+        x, y, origin, demand = row['X'], row['Y'], row['Type'], row['Demand']
+        if origin == 3:  # Punto di pickup
+            formatted_coords.append((x, y, demand))
+        elif origin == 2:  # Punto di delivery
+            formatted_coords.append((x, y, -demand))  # Domanda negativa per i punti di delivery
+    
+    return formatted_coords
+
+
 
 vehicle_capacity = 10
 num_vehicles = 3  # Ad esempio, 3 biciclette
@@ -163,7 +180,9 @@ for q in ['Q1', 'Q2', 'Q3', 'Q4']:
 
     for satellite in satellites_A:
         routes, distances = nearest_neighbor_vrp(satellite, delivery_points, pickup_points, vehicle_capacity, num_vehicles)
-        satellite_routes.append(routes)
+        # Aggiungi il punto di partenza (satellite) all'inizio di ogni percorso
+        routes_with_start = [[satellite] + route for route in routes]
+        satellite_routes.append(routes_with_start)
         satellite_distances.append(distances)
 
     best_route_index = np.argmin([sum(d) for d in satellite_distances])
@@ -182,7 +201,9 @@ for q in ['Q1', 'Q2', 'Q3', 'Q4']:
 
     for satellite in satellites_B:
         routes, distances = nearest_neighbor_vrp(satellite, delivery_points, pickup_points, vehicle_capacity, num_vehicles)
-        satellite_routes.append(routes)
+        # Aggiungi il punto di partenza (satellite) all'inizio di ogni percorso
+        routes_with_start = [[satellite] + route for route in routes]
+        satellite_routes.append(routes_with_start)
         satellite_distances.append(distances)
 
     best_route_index = np.argmin([sum(d) for d in satellite_distances])
@@ -195,15 +216,19 @@ print("Routes and distances for quadrants in City A:")
 for q in routes_A:
     print(f"Quadrant {q}:")
     for i in range(num_vehicles):
-        print(f"  Vehicle {i+1} Route: {routes_A[q][i]}")
-        print(f"  Vehicle {i+1} Total distance: {distances_A[q][i]}")
+        route = routes_A[q][i]
+        total_distance = distances_A[q][i]
+        print(f"  Vehicle {i+1} Route: {route}")
+        print(f"  Vehicle {i+1} Total distance: {total_distance}")
 
 print("\nRoutes and distances for quadrants in City B:")
 for q in routes_B:
     print(f"Quadrant {q}:")
     for i in range(num_vehicles):
-        print(f"  Vehicle {i+1} Route: {routes_B[q][i]}")
-        print(f"  Vehicle {i+1} Total distance: {distances_B[q][i]}")
+        route = routes_B[q][i]
+        total_distance = distances_B[q][i]
+        print(f"  Vehicle {i+1} Route: {route}")
+        print(f"  Vehicle {i+1} Total distance: {total_distance}")
 
 # Plot della mappa con i percorsi
 plt.figure(figsize=(14, 10))
@@ -240,15 +265,17 @@ colors = ['g--', 'b--', 'm--']  # Per diverse biciclette
 for q in routes_A:
     for vehicle in range(num_vehicles):
         route = routes_A[q][vehicle]
-        for i in range(len(route) - 1):
-            plt.plot([route[i][0], route[i+1][0]], [route[i][1], route[i+1][1]], colors[vehicle % len(colors)])
+        # Estrai le coordinate per il plot
+        route_coords = np.array([[point[0], point[1]] for point in route])  # Extract X and Y coordinates
+        plt.plot(route_coords[:, 0], route_coords[:, 1], colors[vehicle % len(colors)])
 
 # Plot delle rotte per i quadranti della città B
 for q in routes_B:
     for vehicle in range(num_vehicles):
         route = routes_B[q][vehicle]
-        for i in range(len(route) - 1):
-            plt.plot([route[i][0], route[i+1][0]], [route[i][1], route[i+1][1]], colors[vehicle % len(colors)])
+        # Estrai le coordinate per il plot
+        route_coords = np.array([[point[0], point[1]] for point in route])  # Extract X and Y coordinates
+        plt.plot(route_coords[:, 0], route_coords[:, 1], colors[vehicle % len(colors)])
 
 plt.legend()
 plt.xlabel('X coordinate')
