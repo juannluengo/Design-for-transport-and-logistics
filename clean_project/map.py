@@ -6,7 +6,7 @@ file_path_juan = "/Users/juanluengo/Desktop/Estudios/Universidades/4° Carrera/Q
 file_path_daila = "/Users/dailagencarelli/Documents/Design4Transport&Logistic/instance_set/Set A/A1_1500_1.csv"
 file_path_small = "/Users/juanluengo/Desktop/Estudios/Universidades/4° Carrera/Quartile 4/Design for transport and logistics/Project/instance_set/Set A/fewData.csv"
 
-coordinates_district = pd.read_csv(file_path_small)
+coordinates_district = pd.read_csv(file_path_juan)
 
 def get_map():
     # Read data
