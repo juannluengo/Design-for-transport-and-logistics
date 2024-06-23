@@ -651,3 +651,10 @@ utilization_B_minivan = total_demand_B / total_capacity_B_minivan
 print(f"Utilization Capacity for minivans at city  A: {utilization_A_minivan * 100:.2f}%")
 print(f"Utilization Capacity for minivans at city B: {utilization_B_minivan * 100:.2f}%")
 print(f"Utilization Capacity for minivans: {((utilization_A_minivan+utilization_B_minivan)/2) * 100:.2f}%")
+semitrailer_capacity=200
+num_semitrailer=1
+total_capacity_A_semitrailer = num_minivans * semitrailer_capacity
+total_capacity_B_semitrailer = num_minivans * semitrailer_capacity
+utilization_A_semitrailer = total_demand_A / total_capacity_A_semitrailer
+utilization_B_semitrailer = total_demand_B / total_capacity_B_semitrailer
+print(f"Utilization Capacity for semi-trailer: {(utilization_A_semitrailer+utilization_B_semitrailer) * 100:.2f}%")
